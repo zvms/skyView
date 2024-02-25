@@ -1,0 +1,8 @@
+requests
+gradio_client
+flask
+# sqlite3
+flask_cors
+pillow
+gevent
+b2sdk
