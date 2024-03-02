@@ -18,6 +18,12 @@ International network environment is needed. (if you need to use huggingface)
 python3 main.py
 ```
 
+or you can use `gunicorn` to run it.
+
+```bash
+gunicorn -w 4 -b
+```
+
 ## Configure
 
 You need to create a `config.py`. The content is as follows:

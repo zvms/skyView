@@ -10,18 +10,18 @@ import re
 conn = sqlite3.connect(config.DB_PATH, check_same_thread=False)
 c = conn.cursor()
 
-# 随机生成token
+# Random token generator
 def generateToken():
     return os.urandom(24).hex()
 
-# 图片模型
-# url: 图片地址
-# author: 上传者学号
-# md5: 图片md5
-# keywords: 图片关键词
-# timestamp: 上传时间戳
+# Picture model
+# url: Picture url
+# author: Uploader id
+# md5: Image md5
+# keywords: Keywords
+# timestamp: Timestamp
 
-# 创建图片表
+# Create image table
 c.execute('''CREATE TABLE IF NOT EXISTS images
     (id INTEGER PRIMARY KEY AUTOINCREMENT,
     url TEXT NOT NULL,
@@ -30,20 +30,20 @@ c.execute('''CREATE TABLE IF NOT EXISTS images
     keywords TEXT NOT NULL,
     timestamp INTEGER NOT NULL)''')
 
-# 用户模型
-# id: 用户id
-# token: 用户token
-# permission: 用户权限 [0, 1] [普通用户（只能看自己）, 管理员（看所有人）]
-# images: 用户图片url列表
+# User model
+# id: User id
+# token: User token
+# permission: User permission
+# images: User images
 
-# 创建用户表
+# Create user table
 c.execute('''CREATE TABLE IF NOT EXISTS users
     (id TEXT PRIMARY KEY,
     token TEXT NOT NULL,
     permission INTEGER NOT NULL,
     images TEXT NOT NULL)''')
 
-# 创建用户
+# Create user
 def createUser(userId, permission):
     token = generateToken()
     images = []
@@ -51,9 +51,9 @@ def createUser(userId, permission):
     conn.commit()
     return token
 
-# 获取用户token
+# Get user token
 def getUserToken(userId, permission):
-    # 如果用户不存在，创建用户
+    # If user not exists, create a new user
     c.execute("SELECT * FROM users WHERE id=?", (userId,))
     user = c.fetchone()
     if user == None:
@@ -65,7 +65,7 @@ def getUserToken(userId, permission):
         conn.commit()
         return token
 
-# 根据token获取用户id
+# Get user id by token
 def getUserIdByToken(token):
     c.execute("SELECT * FROM users WHERE token=?", (token,))
     user = c.fetchone()
@@ -74,7 +74,7 @@ def getUserIdByToken(token):
     else:
         return user[0]
 
-# 获取用户权限
+# Get user permission
 def getUserPermission(userId):
     c.execute("SELECT * FROM users WHERE id=?", (userId,))
     user = c.fetchone()
@@ -83,12 +83,12 @@ def getUserPermission(userId):
     else:
         return user[2]
 
-# 新增图片信息
+# Add image
 def addImage(url, author, md5, keywords, timestamp):
     c.execute("INSERT INTO images VALUES (?, ?, ?, ?, ?, ?)", (None, url, author, md5, keywords, timestamp))
     conn.commit()
 
-# 添加到用户图片列表
+# Add to user image list
 def addUserImage(userId, url):
     c.execute("SELECT * FROM users WHERE id=?", (userId,))
     user = c.fetchone()
@@ -104,16 +104,16 @@ def addUserImage(userId, url):
 def url2id(url):
     # https://xhfs0.ztytech.com/CA107011/f637d39729cd40648ce9e5a05a66f7ff.jpg
     # -> xhfs0_f637d39729cd40648ce9e5a05a66f7ff
-    # 规律：xhfs<数字>_文件名无后缀
+    # Rule: xhfs<digest>_no suffix
     return re.sub(r'https://xhfs(\d).ztytech.com/CA107011/', r'xhfs\1_', url).replace('.jpg', '')
 
 def id2url(pid):
     # xhfs0_f637d39729cd40648ce9e5a05a66f7ff
     # -> https://xhfs0.ztytech.com/CA107011/f637d39729cd40648ce9e5a05a66f7ff.jpg
-    # 规律：xhfs<数字>_文件名无后缀
+    # Rule: xhfs<digest>_ -> https://xhfs<digest>.ztytech.com/CA107011/<digest>.jpg
     return re.sub(r'xhfs(\d)_', r'https://xhfs\1.ztytech.com/CA107011/', pid) + '.jpg'
 
-# 获取用户所有图片列表
+# Get user images
 def getUserImages(userId, pageSize, pageNum):
     c.execute("SELECT * FROM users WHERE id=?", (userId,))
     user = c.fetchone()
@@ -127,7 +127,7 @@ def getUserImages(userId, pageSize, pageNum):
             l.append({"id": url2id(image), "url": image})
         return l
 
-# 获取图片信息
+# Get image info
 def getImageInfo(pid):
     url = id2url(pid)
     c.execute("SELECT * FROM images WHERE url=?", (url,))
