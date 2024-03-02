@@ -1,16 +1,16 @@
-# 每个用户id，生成一个token，存入db
-# 用户上传图片时，需要携带token，验证token是否有效
-# 验证token有效，接收图片
-# 图片处理：
-# 1. 保存图片
-# 2. 鉴定是否为合法图片
-# 3. 生成缩略图，压缩原图至一定大小
-# 4. 生成md5
-# 5. 使用ai生成描述关键词
-# 6. 多端储存图片
-# 7. 保存图片元信息到db
-# 8. 删除本地图片
-# 返回图片信息
+# Every user id, generate a token and store it in db
+# When the user uploads an image, the token needs to be carried, and the token is verified for validity
+# Verify that the token is valid and receive the image
+# Image processing:
+# 1. Save the image
+# 2. Identify whether it is a legal image
+# 3. Generate thumbnails, compress the original image to a certain size
+# 4. Generate md5
+# 5. Use ai to generate descriptive keywords
+# 6. Store images on multiple ends
+# 7. Save image metadata to db
+# 8. Delete local images
+# Return image information
 
 import os
 import sys
@@ -41,28 +41,19 @@ def getUserImageById(userId):
     # 检查用户token的权限是否为 1 - 管理员
     token = request.args.get('token')
     if token == None:
-        return jsonify({
-            "code": 400,
-            "message": "未上传token"
-        })
+        return Response('Unauthorized', status=401)
     thisUserId = getUserIdByToken(token)
     if thisUserId == None:
-        return jsonify({
-            "code": 401,
-            "message": "token无效"
-        })
+        return Response('Token expired', status=401)
     permission = getUserPermission(thisUserId)
     if permission != 1 and thisUserId != userId:
-        return jsonify({
-            "code": 403,
-            "message": "权限不足"
-        })
+        return Response('Access Denined', status=403)
     pageSize = request.args.get('pageSize', default=config.PAGE_SIZE, type=int)
     pageNum = request.args.get('pageNum', default=config.PAGE_NUM, type=int)
     images = getUserImages(userId, pageSize, pageNum)
     return jsonify({
         "code": 200,
-        "message": "获取图片列表成功",
+        "status": "ok",
         "data": {
             "images": images
         }
@@ -73,22 +64,16 @@ def getUserImageById(userId):
 def getUserImage():
     token = request.args.get('token')
     if token == None:
-        return jsonify({
-            "code": 400,
-            "message": "未上传token"
-        })
+        return Response('Unauthorized', status=401)
     userId = getUserIdByToken(token)
     if userId == None:
-        return jsonify({
-            "code": 401,
-            "message": "token无效"
-        })
+        return Response('Token expired', status=401)
     pageSize = request.args.get('pageSize', default=config.PAGE_SIZE, type=int)
     pageNum = request.args.get('pageNum', default=config.PAGE_NUM, type=int)
     images = getUserImages(userId, pageSize, pageNum)
     return jsonify({
         "code": 200,
-        "message": "获取图片列表成功",
+        "status": "ok",
         "data": {
             "images": images
         }
@@ -99,27 +84,18 @@ def getUserImage():
 def getImageById(imageId):
     token = request.args.get('token')
     if token == None:
-        return jsonify({
-            "code": 400,
-            "message": "未上传token"
-        })
+        return Response('Unauthorized', status=401)
     userId = getUserIdByToken(token)
     if userId == None:
-        return jsonify({
-            "code": 401,
-            "message": "token无效"
-        })
+        return Response('Token expired', status=401)
     # 获取图片信息
     image = getImageInfo(imageId)
     print(imageId)
     if image == None:
-        return jsonify({
-            "code": 404,
-            "message": "图片不存在"
-        })
+        return Response('Not Found', status=404)
     return jsonify({
         "code": 200,
-        "message": "获取图片信息成功",
+        "status": "ok",
         "data": {
             "image": image
         }
@@ -130,42 +106,27 @@ def getImageById(imageId):
 def uploadImage():
     token = request.form['token']
     if token == None:
-        return jsonify({
-            "code": 400,
-            "message": "未上传token"
-        })
+        return Response('Unauthorized', status=401)
     userId = getUserIdByToken(token)
     if userId == None:
-        return jsonify({
-            "code": 401,
-            "message": "token无效"
-        })
+        return Response('Token expired', status=401)
     image = request.files['image']
     if image == None:
-        return jsonify({
-            "code": 400,
-            "message": "未上传图片"
-        })
+        return Response('Bad Request', status=400)
     # 保存图片
     filename = randomString() + '.jpg'
     path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     image.save(path)
     # 鉴定是否为合法图片
     if config.CHECK_ENABLED and (not checkImg(path)):
-        return jsonify({
-            "code": 400,
-            "message": "非法图片"
-        })
+        return Response('Illegal Image', status=400)
     # 压缩图片
     compress(path, path, config.MAX_SIZE)
     # print("Started uploading.")
     # 上传图片
     fileId = upload(path)
     if fileId == None:
-        return jsonify({
-            "code": 500,
-            "message": "上传图片失败"
-        })
+        return Response('Internal Server Error', status=500)
     # print("Uploaded.")
     # 新增图片信息
     md5 = generateMD5(path)
@@ -181,7 +142,7 @@ def uploadImage():
     # 返回图片信息
     return jsonify({
         "code": 200,
-        "message": "上传图片成功",
+        "status": "ok",
         "data": {
             "url": config.SERVERURL + "/getimage/" + fileId,
             "author": userId,
@@ -202,10 +163,7 @@ def getImage(fileId):
         })
     userId = getUserIdByToken(token)
     if userId == None:
-        return jsonify({
-            "code": 401,
-            "message": "token无效"
-        })
+        return Response('Token expired', status=401)
     response = getBBImage(fileId)
     if response.status_code == 200:
         def generate():
@@ -220,26 +178,17 @@ def getImage(fileId):
 def getToken():
     superAdminToken = request.args.get('superAdminToken')
     if(superAdminToken == None or superAdminToken != config.SUPERADMINTOKEN):
-        return jsonify({
-            "code": 403,
-            "message": "超级管理员令牌错误"
-        })
+        return Response('Unauthorized', status=401)
     userId = request.args.get('userId')
     if userId == None:
-        return jsonify({
-            "code": 400,
-            "message": "未上传userId"
-        })
+        return Response('No userId', status=422)
     permission = request.args.get('permission')
     if permission == None:
-        return jsonify({
-            "code": 400,
-            "message": "未上传permission"
-        })
+        return Response('No permission', status=422)
     token = getUserToken(userId, permission)
     return jsonify({
         "code": 200,
-        "message": "获取token成功",
+        "status": "ok",
         "data": {
             "token": token
         }
